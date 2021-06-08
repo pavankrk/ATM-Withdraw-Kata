@@ -1,0 +1,130 @@
+@startuml
+autonumber 1.1
+title <size:20> ATM Withdraw </size>
+footer  Pavan Kumar
+
+
+actor user
+participant CardReader
+participant ATM
+participant Session
+participant CustomerConsole
+participant ATMSwitch
+participant CoreBankingServer as CBS 
+participant cashDespencer
+participant log
+database DB
+== Usecase 1 ==
+user -> CardReader :insert card
+activate CardReader
+   CardReader -> ATM : cardinserted()
+activate Session
+activate CustomerConsole
+   ATM -> Session : <<created>>
+   Session -> CardReader : readCard()
+alt if card is damage not able to read
+    CardReader -> CustomerConsole : Return Card not readable
+end
+   CardReader -> CardReader : verify card expiry
+note left : While reading card it will check the card expiry
+alt if card validity is expired 
+   CardReader -> CustomerConsole : Return invalid card
+end
+   CardReader --> Session : card details
+deactivate CardReader
+note left : "{cardNo,cvv,expiryDate,cardType,customerName}"
+   Session --> ATMSwitch : verifyBin()
+   ATMSwitch --> CBS : verifyBin()
+   CBS --> ATMSwitch : bin status
+
+alt if card bin not belongs to bank
+
+   ATMSwitch --> Session : invalid bin
+   Session -> CustomerConsole : card is belong to different bank
+end
+
+   ATMSwitch -> Session : session token
+autonumber inc A
+'Now we have 2.1
+  Session -> CustomerConsole : readPIN()
+  CustomerConsole --> Session : pin
+
+  Session -> ATMSwitch : verifyPIN()
+activate CBS
+  ATMSwitch -->CBS : verify pin
+note right: "Match entered pin against customer card pin in DB"
+  CBS -> DB : verify pin
+alt if pin is not valid
+  DB --> CBS : invalid pin
+  CBS -> ATMSwitch : exception
+  ATMSwitch -> Session: exception
+  Session -> CustomerConsole : Invalid pin ,please re enter pin
+end
+  DB -> CBS : pin ok
+  CBS --> ATMSwitch : [Account num,type,balance]
+deactivate CBS
+  ATMSwitch -> Session : Authenticated [Account num,type,balance]
+note right : "{cardDetails,AccountDetails,Session}"
+
+Session --> CustomerConsole : menu
+== Usecase 2 ==
+autonumber inc A
+'Now we have 3.1
+
+  CustomerConsole -> Session : CashWithdraw()
+
+  Session --> CustomerConsole : prompt to enter withdraw amount
+
+
+  CustomerConsole --> Session : Entered withdraw amount
+
+  Session -> ATMSwitch : checkBalance()
+
+  ATMSwitch -> CBS : check Account balance
+activate CBS
+  CBS -> DB : account balance
+
+alt if Withdraw amount is greater than account balance
+
+  DB --> CBS : Insufficent balance
+
+  CBS --> ATMSwitch : Insufficent balance
+
+  ATMSwitch --> Session : Insufficent balance
+
+  Session --> log : log message
+
+  Session -> CustomerConsole : Return Insufficent balance
+
+end
+  DB --> DB : debit and update balance
+  DB --> CBS : balance amount
+
+  CBS --> ATMSwitch : balance amount
+deactivate CBS
+  ATMSwitch --> Session : [balance,transaction id]
+  Session --> log : log message
+== Usecase 3 ==
+autonumber inc A
+'Now we have 4.1
+
+Session -> ATM : dispenseCash()
+
+alt if Transaction is success but amount not dispensed
+
+Session --> log : transaction details logged
+
+end
+
+Session -> CustomerConsole : Request to collect cash
+
+ATM -> cashDespencer : dispence amount
+
+Session -> CustomerConsole : Do you want to do another transaction
+
+CustomerConsole -> Session : Terminate by user
+
+Session -> CardReader : ejectCard()
+deactivate Session
+deactivate CustomerConsole
+@enduml

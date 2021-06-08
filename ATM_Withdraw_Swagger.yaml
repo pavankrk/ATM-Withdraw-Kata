@@ -1,0 +1,558 @@
+swagger: '2.0'
+info:
+  version: v1.0
+  title: Bank API
+  description:  Swagger specification for Bank ATM Transaction
+host: api.banking
+basePath: /atm/v1
+
+tags:
+  - name: ATM
+    description: |-
+       ## Background
+         ATM transactions are done by account holder in ATM. Account can be  savings , Current or pension. The transactions include
+       * ATM cash withdrawal
+       * Balance enquiry
+       * Pin verification
+       * Bin Check
+
+
+  - name: Verify card details
+    description: Endpoint for verifying card details
+  - name: Transactions
+  - name: Pin Verification
+
+schemes:
+  - https
+consumes:
+  - application/json
+produces:
+  - application/json
+
+
+parameters:
+  X-Request-ID:
+    name: X-Request-ID
+    description: 'Format UUID - ID of the request, unique to the call, as determined by the initiating party'
+    in: header
+    required: true
+    type: string
+    format: uuid
+  Idempotency-Key:
+    name: Idempotency-Key
+    description: Idempotency key will be valid for 24 hours
+    in: header
+    required: true
+    type: string
+    maxLength: 36 
+paths:
+
+  /withDraw:
+   post:
+    description: |-
+        __Background__
+
+        A cash withdrawal is removing funds from a bank account. Account can be  savings, Current. Customer withdrawing money from ATM,in the background it is communitacing with switches and core banking network
+        
+        __Solution Summary & Approach__
+
+
+        As a result of processing this API, Core Banking Server will :Validate the account for available balance, statuses etc.., if all the validations are successful, in response then accounting entires and book balance will be posted.
+        __Assumptions__
+
+        ATM cash withdrawal API scope is limited to Single service
+    operationId: AtmCashWithdrawalPost
+    summary: atmCashWithdrawal
+    tags:
+     - Transactions
+    produces:
+      - "application/json"
+    parameters:
+      - $ref: '#/parameters/X-Request-ID'
+      - $ref: '#/parameters/Idempotency-Key'
+      - in: "body"
+        name: "body"
+        description: "cash withdraw API"
+        required: true
+      
+        schema:
+          $ref: "#/definitions/WithdrawRequest"
+    responses:
+        "200":
+          description: "Cash Withdrawal Successful"
+          schema:
+            $ref: "#/definitions/WithdrawAmountResponse"
+        "400":
+          description: "Bad Request"
+          schema:
+           $ref: '#/definitions/Error'
+        "401" :
+          description: "Access forbidden, invalid Authorization was used"
+          schema:
+           $ref: '#/definitions/Error'
+        "403" :
+          description : "Forbidden"
+          schema:
+           $ref: '#/definitions/Error'
+        "404" :
+          description : "Not Found"
+          schema:
+           $ref: '#/definitions/Error'
+        "500" :
+          description : "Internal server error"
+          schema:
+           $ref: '#/definitions/Error'
+          
+  /balanceCheck:
+   post:
+     description: |-
+        __Background__
+        Customer is using the ATM/Debit card at ATM machines to get balance information.While customer is requesting, in the background ATM machine will be communicating with cardholder bank via SWITCH, core banking server.
+       
+        __Solution Summary & Approach__
+
+        By using this API, SWITCHES can request following
+        * __Request__-> Balance enquiry request
+        * __Repeat Request__-> Balance enquiry repeat request for times out transactions
+
+        As a result of processing this API, Core Banking Server will :Validate the account for available balance, statuses etc.., if all the validations are successful, in response the balances are sent.
+
+
+        __Assumptions__
+
+        Core Banking Solution will send only 3 balances in the response
+        * Book  balance
+        * Available balance
+        * Available balance without credit limit
+     tags:
+      - Transactions
+     produces:
+      - "application/json"
+     parameters:
+      - $ref: '#/parameters/X-Request-ID'
+      - $ref: '#/parameters/Idempotency-Key'
+      - in: "body"
+        name: "body"
+        description: "Balance check"
+        required: true
+      
+        schema:
+          $ref: "#/definitions/BalanceEnquiryRequest"
+     responses:
+        '200':
+          description: "Balance Enquiry Successful"
+          schema:
+           $ref: "#/definitions/BalanceEnquiryResponse"
+        '400':
+          description: "Bad Request"
+          schema:
+           $ref: '#/definitions/Error'
+        "401" :
+          description: "Access forbidden, invalid Authorization was used"
+          schema:
+           $ref: '#/definitions/Error'
+        "403" :
+          description : "Forbidden"
+          schema:
+           $ref: '#/definitions/Error'
+        "404" :
+          description : "Not Found"
+          schema:
+           $ref: '#/definitions/Error'
+        "500" :
+          description : "Internal server error"
+          schema:
+           $ref: '#/definitions/Error'
+        
+          
+  /verifyPin:
+ 
+   post:
+    description: |-
+        __Background__
+
+         Customer card has to be authenticated by entering the atm pin in machine, in the background it is communicating with switches and core banking server.
+         
+        __Solution Summary & Approach__
+
+
+         As a result of processing this API, Core Banking Server will :Validate the atm pin , if all the validations are successful, in response pin status and account details will be posted.
+        
+    operationId: VerifyATMPINPOST
+    summary: "ATM pin verification"
+    tags:
+     - Pin Verification
+    produces:
+      - "application/json"
+    parameters:
+      - $ref: '#/parameters/X-Request-ID'
+      - $ref: '#/parameters/Idempotency-Key'
+      - in: "body"
+        name: "body"
+        description: "Balance check"
+        required: true
+      
+        schema:
+          $ref: "#/definitions/VerifyPinRequest"
+    responses:
+        '200':
+          description: Successful
+          schema:
+           $ref: "#/definitions/VerifyPinResponse"
+        '400':
+          description: "Bad Request"
+          schema:
+           $ref: '#/definitions/Error'
+        "401" :
+          description: "Access forbidden, invalid Authorization was used"
+          schema:
+           $ref: '#/definitions/Error'
+        "403" :
+          description : "Forbidden"
+          schema:
+           $ref: '#/definitions/Error'
+        "404" :
+          description : "Not Found"
+          schema:
+           $ref: '#/definitions/Error'
+        "500" :
+          description : "Internal server error"
+          schema:
+           $ref: '#/definitions/Error'
+ 
+
+  /binCheck:
+   post:
+    description: verify bin to check the card belongs to aquirer bank or not
+    operationId: bin check
+    
+    tags:
+     - Verify card details
+    produces:
+      - "application/json"
+    parameters:
+      - $ref: '#/parameters/X-Request-ID'
+      - $ref: '#/parameters/Idempotency-Key'
+      - in: "body"
+        name: "body"
+        description: "cash withdraw API"
+        required: true
+      
+        schema:
+           $ref: '#/definitions/BinCheckRequest'
+    responses:
+        '200':
+          description: Successful  
+          schema:
+           $ref: '#/definitions/BinCheckResponse'
+        '400':
+          description: "Bad Request"
+          schema:
+           $ref: '#/definitions/Error'
+        "401" :
+          description: "Access forbidden, invalid Authorization was used"
+          schema:
+           $ref: '#/definitions/Error'
+        "403" :
+          description : "Forbidden"
+          schema:
+           $ref: '#/definitions/Error'
+        "404" :
+          description : "Not Found"
+          schema:
+           $ref: '#/definitions/Error'
+        "500" :
+          description : "Internal server error"
+          schema:
+           $ref: '#/definitions/Error'
+ 
+definitions:
+    BalanceEnquiryRequest:
+     type: object
+     properties:
+        accountNum:
+          type: string
+          minimum: 10.0
+          example: "9876543210"
+        channelID:
+          type: string
+          example: "ATM"
+        atmID:
+          type: string
+          example: ATM123456
+        sessionIdentifier:
+          type: string
+          example: "gytyy67gbbhhb88788"
+        dateTimeTransmission:
+          type: string
+          format: date-time
+    
+    BalanceEnquiryResponse:
+     title: BalanceEnquiryResponse
+     description: Balance Enquiry Response
+     type: object
+     properties:
+      accountLedgerBalance:
+        description: 'Account Running Balance (Ledger Balance). BigDecimal(24,6) indicating 18 digits before and 6 after decimal'
+        example: 50
+        type: number
+        format: double
+        minimum: 1
+      accountAvailableBalance:
+        description: |-
+          Available balance including OD/Limits. BigDecimal(24,6) indicating 18
+           digits before and 6 after decimal
+        example: 50
+        type: number
+        format: double
+        minimum: 1
+      accountAvailableBalanceWithoutCredit:
+        description: 'Available balance excluding OD/Limits. BigDecimal(24,6) indicating 18 digits before and 6 after decimal'
+        example: 10
+        type: number
+        format: double
+        minimum: 1
+     required:
+      - accountLedgerBalance
+      - accountAvailableBalance
+      - accountAvailableBalanceWithoutCredit
+    WithdrawRequest:
+       title: WithdrawRequest
+       description: Cash Withdrawal Request
+       type: object
+       properties:
+        channelID:
+         type: string
+         example: "ATM"
+        terminalID:
+         type: string
+         example: "ATM123"
+        accountType:
+          type: string
+          enum:
+             - SAVING
+             - CURRENT
+             - PENSION
+        accountNumber:
+          type: string
+        atmPin:
+          type: string
+          minimum: 4
+          example: "3456"
+          
+        amountToBeWithdraw:
+          type: number
+          example: 300
+        atmID:
+          type: string
+          example: ATM123456
+        sessionIdentifier:
+          type: string
+          example: "gytyy67gbbhhb88788"
+        dateTimeTransmission:
+          description: Indicates the message transmission date and time from the channel
+          type: string
+          format: date-time
+       required:
+        - accountNumber
+        - amountToBeWithdraw
+        - atmID
+        - sessionIdentifier
+        
+        
+ 
+    WithdrawAmountResponse:
+      type: object
+      properties:
+       transactionStatus:
+        description: Status of the ATM cash withdrawal transaction. S for Success F for Failure
+        example: S
+        type: string
+        enum:
+          - S
+          - F
+        minLength: 1
+        maxLength: 1
+       accountAvailableBalance:
+        description: 'Available balance , BigDecimal(24,6) indicating 18 digits before and 6 after decimal'
+        example: 5000
+        type: number
+        format: double
+        minimum: 1
+       transactionID:
+        type: string
+        example: "TNS1234456"
+      
+      required:
+        - transactionStatus
+        - accountAvailableBalance
+    BinCheckRequest:
+      type: object
+      properties:
+       cardSequence:
+        type: number
+        minLength: 6
+       atmID:
+          type: string
+          example: ATM123456
+       sessionIdentifier:
+          type: string
+          example: "gytyy67gbbhhb88788"
+        
+    BinCheckResponse:  
+      type: object
+      properties:
+       binStatus:
+         type: string
+         enum:
+           - VALID
+           - INVALID
+         example: "VALID"
+    VerifyPinRequest:
+     type: object
+     properties:
+      cardNuumber:
+       type: string
+       minLength: 16
+       example: "4618765432889"
+      cardPin:
+       type: number
+       minLength: 4
+       example: 3322
+      atmID:
+          type: string
+          example: ATM123456
+      sessionIdentifier:
+          type: string
+          example: "gytyy67gbbhhb88788"
+          
+    VerifyPinResponse:
+     type: object
+     properties:
+      pin_status: 
+        type: string
+        enum:
+           - VALID
+           - INVALID
+        example: "VALID"
+      accountDetails:
+       $ref: '#/definitions/AccountDetail'
+      accountBalance:
+         type: number
+         example: 500
+    AccountDetail:
+     description: Basic information of the account
+     type: object
+     title: Account Detail
+     properties:
+      accountName:
+        description: The name of the account
+        type: string
+        maxLength: 50
+        example: Payroll Account
+      currency:
+        type: string
+        example: "INR"
+      customerType:
+        description: 'The type of customer, either a person or an organisation'
+        type: string
+        maxLength: 12
+        enum:
+          - PERSON
+          - ORGANISATION
+      accountType:
+       type: string
+      accountStatus:
+        description: ' Indicates whether the account can be used or whether its'' use has been suspended or terminated'
+        type: string
+        enum:
+          - ENABLED
+          - BLOCKED
+          - CLOSED
+      accountOwnership:
+        description: Indentifies whether the account is is owned by a sole customer or jointly
+        type: string
+        enum:
+          - SOLE
+          - JOINT
+      postingsRestriction:
+        description: ' Indicates any restriction on whether the account may be debited and/or credited'
+        type: string
+        enum:
+          - DEBITCREDIT
+          - DEBIT
+          - CREDIT
+          - NONE
+    
+        
+      
+    Causes:
+     title: Causes
+     description: Used to define additional causes associated with the error when the associated error message does not provide sufficient clarity on remediation of the error
+     type: object
+     properties:
+      code:
+        description: A code referencing the problem associated with this cause of the error
+        example: 'x068'
+        type: string
+        maxLength: 8
+      message:
+        description: A short human-readable summary of the problem associated with this cause of the error
+        example: The account '1234567890' is dormant
+        type: string
+        maxLength: 256
+      severity:
+        description: The severity associated with this cause of the error
+        example: ERROR
+        type: string
+        maxLength: 25
+      comment:
+        description: A short human-readable comment or note associated with this cause of the error
+        example: Ensure the account is active for the request
+        type: string
+        maxLength: 256
+      field:
+        description: The field associated with this cause of the error
+        example: account
+        type: string
+        maxLength: 256
+      fieldValue:
+        description: The value of the field associated with this cause of the error
+        example: '543123467083'
+        type: string
+        maxLength: 256
+    Error:
+     title: Error
+     description: Used as a standard error message structure that complies with RFC7807.
+     type: object
+     properties:
+      type:
+        description: 'A URI reference [RFC3986] that identifies the problem type.'
+        example: 'https://api.banking.com/validation-error'
+        type: string
+        maxLength: 256
+      title:
+        description: A short human-readable summary of the problem type.
+        example: The request is invalid
+        type: string
+        maxLength: 256
+      status:
+        description: The HTTP status code generated by the origin server for this          occurrence of the problem
+        example: 400
+        type: integer
+        format: int32
+      detail:
+        description: A short human-readable explanation specific to this occurrence of the problem
+        example: The account does not exist
+        type: string
+        maxLength: 256
+      causes:
+        description: An optional array of additional causes associated with the error
+        type: array
+        items:
+          $ref: '#/definitions/Causes'
+     
+  
+  
+  
+  
